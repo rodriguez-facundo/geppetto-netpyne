@@ -12,6 +12,7 @@ import NetPyNESimConfig from './components/definition/configuration/NetPyNESimCo
 import NetPyNEInstantiated from './components/instantiation/NetPyNEInstantiated';
 import NetPyNEToolBar from './components/settings/NetPyNEToolBar';
 import NetPyNETabs from './components/settings/NetPyNETabs';
+import Utils from './Utils';
 
 var PythonControlledCapability = require('../../js/communication/geppettoJupyter/PythonControlledCapability');
 var PythonControlledNetPyNEPopulations = PythonControlledCapability.createPythonControlledComponent(NetPyNEPopulations);
@@ -40,7 +41,50 @@ export default class NetPyNE extends React.Component {
     this.handleDeactivateInstanceUpdate = this.handleDeactivateInstanceUpdate.bind(this);
     this.handleDeactivateSimulationUpdate = this.handleDeactivateSimulationUpdate.bind(this);
     this.handleTabChangedByToolBar = this.handleTabChangedByToolBar.bind(this)
-  }		
+  }
+
+  componentDidMount () {
+    // A message from the parent frame can specify the file to load
+    window.addEventListener('message', event => {
+      // Message should be {repo: "gitusername/reponame", path: "path/to/folder", moduleName: "netParamsModuleName"}
+      // Assuming simConfig and netParams are in same module for now..., and that mod are in the same folder
+      if (event.data.repo)
+        Utils.execPythonMessage('!git clone https://github.com/' + event.data.repo, function() {
+          var repo_name = event.data.repo.split('/')[1];
+          //var json_path = "https://raw.githubusercontent.com/" + event.data + "/master/netpyne.osb.json";
+          Utils.execPythonMessage('!pwd', function(pwd) {
+            pwd = pwd.content.text.trim();
+            //var request = new XMLHttpRequest();
+            //request.open('GET', json_path, true);
+            //request.send(null);
+            //request.onreadystatechange = function () {
+            //if (request.readyState === 4 && request.status === 200) {
+            //var type = request.getResponseHeader('Content-Type');
+            //if (type.indexOf("text") !== 1) {
+            //var paths = JSON.parse(request.responseText);
+            var workspace_path = pwd + "/" + repo_name + "/";
+            var params = {
+              simConfigPath: workspace_path + event.data.path + "/",
+              simConfigModuleName: event.data.moduleName,
+              netParamsPath: workspace_path + event.data.path + "/",
+              netParamsModuleName: event.data.moduleName,
+              modFolder: workspace_path + event.data.path,
+              exploreOnlyDirs: true,
+              explorerDialogOpen: false,
+              explorerParameter: "modFolder",
+              filterFiles: false,
+              loadMod: true,
+              compileMod: true,
+              netParamsHovered: "hidden",
+              fileName: "output",
+              netParamsVariable: "netParams",
+              simConfigVariable: "simConfig"
+            };
+            Utils.evalPythonMessage('netpyne_geppetto.importModel', [params]);
+          });
+        })
+    })
+  }
 
   componentWillReceiveProps(nextProps) {
     if (this.props.data != nextProps.data) {
